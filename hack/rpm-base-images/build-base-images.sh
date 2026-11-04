@@ -35,7 +35,7 @@ source "${REPO_ROOT}/hack/container-utils.sh"
 source "${SCRIPT_DIR}/common.sh"
 
 # RPM updates apply to every architecture
-BUILD_ARCH=${BUILD_ARCH:-amd64,arm64,s390x}
+BUILD_ARCH=${BUILD_ARCH:-amd64,arm64,s390x,ppc64le}
 
 # The builder image pinned in hack/dockerized
 eval "$(grep -E '^(kubevirt_builder_version|default_kubevirt_builder_image)=' "${REPO_ROOT}/hack/dockerized")"
@@ -71,6 +71,7 @@ generate_tars_for_image() {
     amd64) rpm_arch="x86_64" ;;
     arm64) rpm_arch="aarch64" ;;
     s390x) rpm_arch="s390x" ;;
+    ppc64le) rpm_arch="ppc64le" ;;
     esac
 
     local trees="${image}"
@@ -115,13 +116,20 @@ build_for_arch() {
     arch_build_args+=" --build-arg CENTOS_STREAM_VERSION=${KUBEVIRT_CENTOS_STREAM_VERSION}"
 
     local -a tar_requests=()
-    for image in "${arch_images[@]}"; do
-        generate_tars_for_image "${image}" "${arch_tag}" "${RPM_TARS_DIR}/${image}-${arch_tag}"
-    done
-    generate_requested_tars
+    # ppc64le installs its RPMs with dnf, so it needs no tars and no bazeldnf
+    if [[ "${arch_tag}" != "ppc64le" ]]; then
+        for image in "${arch_images[@]}"; do
+            generate_tars_for_image "${image}" "${arch_tag}" "${RPM_TARS_DIR}/${image}-${arch_tag}"
+        done
+        generate_requested_tars
+    fi
 
     for image in "${arch_images[@]}"; do
         containerfile="${SCRIPT_DIR}/Containerfile.${image}"
+        if [[ "${arch_tag}" == "ppc64le" ]]; then
+            containerfile="${SCRIPT_DIR}/ppc64le/Containerfile.${image}"
+            mkdir -p "${RPM_TARS_DIR}/${image}-${arch_tag}"
+        fi
 
         if [[ ! -f "${containerfile}" ]]; then
             echo "ERROR: Containerfile not found: ${containerfile}"
