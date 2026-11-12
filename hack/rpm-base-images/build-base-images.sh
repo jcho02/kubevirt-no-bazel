@@ -116,20 +116,14 @@ build_for_arch() {
     arch_build_args+=" --build-arg CENTOS_STREAM_VERSION=${KUBEVIRT_CENTOS_STREAM_VERSION}"
 
     local -a tar_requests=()
-    # ppc64le installs its RPMs with dnf, so it needs no tars and no bazeldnf
-    if [[ "${arch_tag}" != "ppc64le" ]]; then
-        for image in "${arch_images[@]}"; do
-            generate_tars_for_image "${image}" "${arch_tag}" "${RPM_TARS_DIR}/${image}-${arch_tag}"
-        done
-        generate_requested_tars
-    fi
+
+    for image in "${arch_images[@]}"; do
+        generate_tars_for_image "${image}" "${arch_tag}" "${RPM_TARS_DIR}/${image}-${arch_tag}"
+    done
+    generate_requested_tars
 
     for image in "${arch_images[@]}"; do
         containerfile="${SCRIPT_DIR}/Containerfile.${image}"
-        if [[ "${arch_tag}" == "ppc64le" ]]; then
-            containerfile="${SCRIPT_DIR}/ppc64le/Containerfile.${image}"
-            mkdir -p "${RPM_TARS_DIR}/${image}-${arch_tag}"
-        fi
 
         if [[ ! -f "${containerfile}" ]]; then
             echo "ERROR: Containerfile not found: ${containerfile}"
